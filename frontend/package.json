@@ -1,0 +1,31 @@
+{
+  "name": "narrix-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@hashgraph/sdk": "^2.55.0",
+    "@tailwindcss/vite": "^4.2.2",
+    "@vitejs/plugin-react": "^4.7.0",
+    "buffer": "^6.0.3",
+    "canvas-confetti": "^1.9.4",
+    "framer-motion": "^12.38.0",
+    "hashconnect": "^3.0.0",
+    "lightweight-charts": "^5.1.0",
+    "lucide-react": "^1.7.0",
+    "process": "^0.11.10",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "socket.io-client": "^4.8.3",
+    "tailwindcss": "^4.2.2",
+    "vite-plugin-node-polyfills": "^0.25.0"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}

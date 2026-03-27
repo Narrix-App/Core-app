@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0b10;
+  --color-card: #111118;
+  --color-border: #1e1e2a;
+  --color-up: #00ff88;
+  --color-down: #ff4466;
+  --color-accent: #00ccff;
+  --color-gold: #ffd700;
+  --color-muted: #555;
+}
+
+body { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e1e2a; border-radius: 2px; }

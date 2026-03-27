@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Bet {
+  id          Int      @id @default(autoincrement())
+  roundNumber Int
+  accountId   String
+  evmAddress  String
+  direction   Int
+  amount      Float
+  entryScore  Int
+  exitScore   Int?
+  pnl         Float?
+  status      String   @default("pending")
+  txId        String?
+  createdAt   DateTime @default(now())
+
+  @@index([roundNumber, status])
+  @@index([accountId, createdAt])
+}

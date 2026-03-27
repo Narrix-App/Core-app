@@ -1,0 +1,29 @@
+{
+  "name": "narrix-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pulse": "node pulse.js",
+    "create-token": "node create-nrx.js",
+    "setup": "node setup-arena.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@hashgraph/sdk": "^2.55.0",
+    "@prisma/client": "^5.22.0",
+    "@tailwindcss/vite": "^4.2.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.0",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.7.0",
+    "prisma": "^5.22.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "tailwindcss": "^4.2.2"
+  }
+}
