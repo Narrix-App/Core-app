@@ -1,17 +1,45 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0a0b10;
-  --color-card: #111118;
-  --color-border: #1e1e2a;
+  --color-bg: #050505;
+  --color-card: #0a0a0a;
+  --color-card-glass: rgba(255, 255, 255, 0.02);
+  --color-border: #1a1a1a;
   --color-up: #00ff88;
   --color-down: #ff4466;
-  --color-accent: #00ccff;
+  --color-accent: #F0FF00;
   --color-gold: #ffd700;
   --color-muted: #555;
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
 }
 
-body { font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace; }
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+}
+
+/* Utility: force mono on all numeric data */
+.font-mono, .tabular-nums, [data-mono] {
+  font-family: var(--font-mono) !important;
+}
+
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1e1e2a; border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 2px; }
+
+/* Glass card utility */
+.glass-card {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Yellow accent glow for interactive elements */
+.accent-glow {
+  box-shadow: 0 0 20px rgba(240, 255, 0, 0.15);
+}
+.accent-glow-strong {
+  box-shadow: 0 0 30px rgba(240, 255, 0, 0.25);
+}

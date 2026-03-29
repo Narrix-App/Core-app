@@ -17,6 +17,7 @@ import {
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const { PrismaClient } = require("@prisma/client");
+const { EventSource } = require("eventsource");
 import "dotenv/config";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -61,9 +62,22 @@ io.on("connection", (socket) => {
 });
 
 // ─── Oracle State ────────────────────────────────────────
-let latestScore = 5000;
-let roundStartScore = 5000;
+const NARRATIVE_SSE_URL = "https://joyful-achievement-production.up.railway.app/api/stream";
+const NARRATIVE_REST_URL = "https://joyful-achievement-production.up.railway.app/api/narratives";
+
+let latestScore = 0;       // scaled integer: price * 100 (e.g., 116044)
+let roundStartScore = 0;
 let topicId = process.env.HCS_TOPIC_ID || null;
+
+// Active narrative (switchable via API)
+let activeNarrativeTag = null; // null = auto-pick highest volume
+
+// Narrative metadata (enriched by SSE)
+let narrativeLabel = "—";
+let narrativeDirection = "stable";
+let narrativeTag = "";
+let narrativeVolume = 0;
+let narrativeTopMarkets = [];
 
 // ─── Round State ─────────────────────────────────────────
 const ROUND_DURATION = 30;
@@ -83,7 +97,7 @@ async function initOracle() {
   console.log("Creating HCS Topic...");
   const tx = await new TopicCreateTransaction()
     .setSubmitKey(client.operatorPublicKey)
-    .setTopicMemo("Narrix NAI Score Oracle")
+    .setTopicMemo("Narrix NAI Score Oracle — Live Narrative Index")
     .execute(client);
 
   const receipt = await tx.getReceipt(client);
@@ -91,25 +105,128 @@ async function initOracle() {
   console.log(`HCS Topic Created: ${topicId}`);
 }
 
-function startOracle() {
-  setInterval(async () => {
-    const delta = Math.floor(Math.random() * 301) - 150;
-    latestScore = Math.max(1000, Math.min(9999, latestScore + delta));
+// ── Available narratives cache (refreshed by SSE) ────────
+let availableNarratives = [];
 
-    const payload = JSON.stringify({
-      score: latestScore,
-      timestamp: Date.now(),
+// ── Latest real data from SSE (written by listener, read by pulse loop) ──
+let latestRealData = null; // { price, tag, label, direction, volume, topMarkets }
+
+// ── Live SSE Oracle ──────────────────────────────────────
+function startOracle() {
+  // ── 1. SSE listener: only updates latestRealData, never publishes ──
+  function connectSSE() {
+    console.log("  [oracle] Connecting to Narrative SSE...");
+    const es = new EventSource(NARRATIVE_SSE_URL);
+
+    es.addEventListener("indices", (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const narrativesMap = data.narratives;
+
+        // Cache available narratives for dropdown
+        availableNarratives = Object.entries(narrativesMap).map(([tag, n]) => ({
+          tag,
+          label: n.label || tag,
+          color: n.color || "#888",
+          volume: n.total_oi || 0,
+        })).sort((a, b) => b.volume - a.volume);
+
+        // Select target narrative
+        let target = null;
+
+        if (activeNarrativeTag) {
+          const n = narrativesMap[activeNarrativeTag];
+          if (n) target = { tag: activeNarrativeTag, ...n };
+        }
+
+        if (!target) {
+          let bestVol = 0;
+          for (const [tag, n] of Object.entries(narrativesMap)) {
+            const vol = n.total_oi || 0;
+            if (vol > bestVol) {
+              bestVol = vol;
+              target = { tag, ...n };
+            }
+          }
+        }
+
+        if (!target) return;
+
+        // Store real data — the pulse loop reads this
+        latestRealData = {
+          price: target.price,
+          tag: target.tag,
+          label: target.label || target.tag,
+          direction: target.direction || "stable",
+          volume: Math.round(target.total_oi || 0),
+          topMarkets: (target.top_markets || []).slice(0, 3).map((m) => m.question || ""),
+        };
+      } catch (err) {
+        console.error("  [oracle] SSE parse error:", err.message);
+      }
     });
 
-    try {
-      await new TopicMessageSubmitTransaction()
-        .setTopicId(topicId)
-        .setMessage(payload)
-        .execute(client);
-    } catch (err) {
-      console.error("Oracle publish error:", err.message);
+    es.addEventListener("open", () => {
+      console.log("  [oracle] SSE connected — streaming live narrative data");
+    });
+
+    es.addEventListener("error", () => {
+      console.warn("  [oracle] SSE disconnected — reconnecting in 3s...");
+      es.close();
+      setTimeout(connectSSE, 3000);
+    });
+  }
+
+  connectSSE();
+
+  // ── 2. The 1-Second Pulse Loop (jitter + publish) ─────
+  const MAX_JITTER = 0.75; // ±$0.75 smooth synthetic volatility
+  let hcsThrottle = 0;
+
+  setInterval(() => {
+    if (!latestRealData) return;
+
+    // Apply micro-jitter to the real price
+    const jitter = (Math.random() * MAX_JITTER * 2) - MAX_JITTER;
+    const jitteredPrice = latestRealData.price + jitter;
+
+    // CRITICAL: Scale to integer for HCS & smart contract
+    const scaledScore = Math.round(jitteredPrice * 100);
+    latestScore = scaledScore;
+
+    // Update enrichment metadata from real data
+    narrativeTag = latestRealData.tag;
+    narrativeLabel = latestRealData.label;
+    narrativeDirection = latestRealData.direction;
+    narrativeVolume = latestRealData.volume;
+    narrativeTopMarkets = latestRealData.topMarkets;
+
+    // Publish to HCS every 4th tick (every 4s) to avoid rate limits
+    hcsThrottle++;
+    if (hcsThrottle % 4 === 0) {
+      publishToHCS(scaledScore);
     }
-  }, 2000);
+  }, 1000);
+}
+
+async function publishToHCS(score) {
+  const payload = JSON.stringify({
+    score,
+    label: narrativeLabel,
+    direction: narrativeDirection,
+    volume: narrativeVolume,
+    topMarkets: narrativeTopMarkets,
+    timestamp: Date.now(),
+  });
+
+  try {
+    await new TopicMessageSubmitTransaction()
+      .setTopicId(topicId)
+      .setMessage(payload)
+      .execute(client);
+  } catch (err) {
+    console.error("  [oracle] HCS publish error:", err.message);
+  }
 }
 
 // ─── Settlement Loop ─────────────────────────────────────
@@ -419,7 +536,43 @@ app.get("/api/state", (_req, res) => {
     poolDown: localPoolDown,
     topicId,
     recentResults,
+    // Narrative enrichment
+    narrative: {
+      tag: narrativeTag,
+      label: narrativeLabel,
+      direction: narrativeDirection,
+      volume: narrativeVolume,
+      topMarkets: narrativeTopMarkets,
+    },
   });
+});
+
+// ─── API: Available Narratives ───────────────────────────
+app.get("/api/narratives", (_req, res) => {
+  res.json({
+    active: activeNarrativeTag || narrativeTag,
+    narratives: availableNarratives,
+  });
+});
+
+// ─── API: Switch Narrative ───────────────────────────────
+app.post("/api/set-narrative", (req, res) => {
+  const { narrative } = req.body;
+  if (!narrative) {
+    return res.status(400).json({ error: "Missing narrative tag" });
+  }
+
+  const prev = activeNarrativeTag || narrativeTag;
+  activeNarrativeTag = narrative;
+
+  // Force hard reset — clear cached data so next SSE tick picks up the new narrative
+  latestRealData = null;
+  roundStartScore = latestScore;
+
+  console.log(`  [oracle] Narrative switched: ${prev} → ${narrative}`);
+  io.emit("narrative_switched", { from: prev, to: narrative });
+
+  res.json({ success: true, active: narrative });
 });
 
 // ─── API: Config ─────────────────────────────────────────

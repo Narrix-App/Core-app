@@ -18,7 +18,7 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
   const [faucetLoading, setFaucetLoading] = useState(false);
   const [chip, setChip] = useState(500);
   const [betting, setBetting] = useState(false);
-  const [outcome, setOutcome] = useState(null); // { type: "win"|"lose", amount }
+  const [outcome, setOutcome] = useState(null);
 
   const hasPosition = entryDirection != null;
 
@@ -51,14 +51,12 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
       const data = await res.json();
 
       if (data.code === "TOKEN_NOT_ASSOCIATED") {
-        // Trigger association via HashConnect then retry
         await wallet.runSetup();
         setFaucetLoading(false);
         return;
       }
       if (!res.ok) throw new Error(data.error || "Faucet failed");
 
-      // Wait for Mirror Node to reflect, then refresh balance
       await new Promise((r) => setTimeout(r, 3000));
       refreshBalance();
     } catch (err) {
@@ -75,12 +73,12 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
     setBetting(false);
   }, [betting, hasPosition, chip, onBet]);
 
-  // ── Disconnected / Setup states ──
+  // ── Disconnected state ──
   if (wallet.status === "disconnected") {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 p-6">
-        <Wallet className="w-10 h-10 text-[var(--color-accent)]" />
-        <button onClick={wallet.connect} className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-purple-500 text-white font-bold text-sm tracking-wide hover:shadow-[0_0_20px_rgba(155,89,255,0.4)] transition-all active:scale-95">
+      <div className="flex flex-col items-center justify-center h-full gap-5 p-6">
+        <Wallet className="w-10 h-10 text-[var(--color-accent)] opacity-60" />
+        <button onClick={wallet.connect} className="w-full py-3.5 rounded-xl bg-[var(--color-accent)] text-black font-black text-sm tracking-wider hover:shadow-[0_0_25px_rgba(240,255,0,0.35)] hover:brightness-110 hover:scale-[1.02] transition-all active:scale-95">
           Connect HashPack
         </button>
         <span className="text-[10px] text-[var(--color-muted)]">Hedera Testnet</span>
@@ -101,8 +99,8 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 p-6">
         <div className="text-sm font-bold">Wallet Connected</div>
-        <div className="text-[11px] text-[var(--color-accent)]">{truncId(wallet.accountId)}</div>
-        <button onClick={wallet.runSetup} className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--color-up)] to-[var(--color-accent)] text-black font-bold text-sm tracking-wide hover:shadow-[0_0_20px_rgba(0,255,136,0.3)] transition-all active:scale-95">
+        <div className="text-[11px] text-[var(--color-accent)] font-mono">{truncId(wallet.accountId)}</div>
+        <button onClick={wallet.runSetup} className="w-full py-3 rounded-xl bg-white/[0.08] border border-white/[0.12] text-white font-bold text-sm tracking-wide hover:bg-white/[0.12] transition-all active:scale-95">
           Set Up Account
         </button>
         <span className="text-[10px] text-[var(--color-muted)]">Associate token + approve betting</span>
@@ -116,11 +114,11 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
       {/* Profile */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-[10px] font-bold text-white">
+          <div className="w-8 h-8 rounded-full bg-[var(--color-accent)]/20 border border-[var(--color-accent)]/30 flex items-center justify-center text-[10px] font-black text-[var(--color-accent)] font-mono">
             {(wallet.accountId || "").slice(-2)}
           </div>
           <div>
-            <div className="text-[11px] font-bold">{truncId(wallet.accountId)}</div>
+            <div className="text-[11px] font-bold font-mono">{truncId(wallet.accountId)}</div>
             <div className="text-[10px] text-[var(--color-muted)]">Testnet</div>
           </div>
         </div>
@@ -130,7 +128,7 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
       </div>
 
       {/* Balance + Faucet */}
-      <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl p-4">
+      <div className="glass-card p-4">
         <div className="flex items-center justify-between mb-1">
           <div className="text-[10px] uppercase tracking-[3px] text-[var(--color-muted)]">Balance</div>
           <button
@@ -151,7 +149,7 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
             initial={{ scale: 1 }}
             animate={{ scale: [1, 1.08, 1] }}
             transition={{ duration: 0.3 }}
-            className="text-3xl font-black tabular-nums text-white"
+            className="text-3xl font-black tabular-nums text-white font-mono"
           >
             {displayBalance.toLocaleString()} <span className="text-sm text-[var(--color-accent)]">NRX</span>
           </motion.div>
@@ -166,10 +164,10 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
             <button
               key={c}
               onClick={() => setChip(c)}
-              className={`py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`py-2 rounded-lg text-xs font-bold font-mono transition-all ${
                 chip === c
                   ? "bg-[var(--color-accent)]/15 border border-[var(--color-accent)] text-[var(--color-accent)]"
-                  : "bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-accent)]/50"
+                  : "glass-card border border-transparent text-[var(--color-muted)] hover:border-[var(--color-accent)]/30"
               }`}
             >
               {c >= 1000 ? c / 1000 + "K" : c}
@@ -217,7 +215,7 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
             exit={{ opacity: 0, y: -30 }}
             className="fixed inset-0 flex items-center justify-center pointer-events-none z-50"
           >
-            <div className={`text-6xl md:text-8xl font-black ${
+            <div className={`text-6xl md:text-8xl font-black font-mono ${
               outcome.type === "win" ? "text-[var(--color-up)]" : "text-[var(--color-down)]"
             }`} style={{ textShadow: `0 0 60px currentColor` }}>
               {outcome.type === "win"
@@ -232,7 +230,7 @@ export default function CommandCenter({ config, balance, displayBalance, refresh
 }
 
 function fireWinConfetti() {
-  const colors = ["#00ff88", "#00cc6a", "#FFD700", "#FFC107"];
+  const colors = ["#00ff88", "#00cc6a", "#F0FF00", "#FFD700"];
   const opts = { startVelocity: 45, spread: 80, ticks: 120, zIndex: 300 };
   confetti({ ...opts, particleCount: 80, origin: { x: 0.1, y: 1 }, colors, angle: 60 });
   confetti({ ...opts, particleCount: 80, origin: { x: 0.9, y: 1 }, colors, angle: 120 });
