@@ -589,6 +589,11 @@ app.get("/api/config", (_req, res) => {
   });
 });
 
+// ─── SPA Catch-All (must be after all /api routes) ───────
+app.get("*", (req, res) => {
+  res.sendFile(resolve(__dirname, "../frontend/dist/index.html"));
+});
+
 // ─── Start ───────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 
