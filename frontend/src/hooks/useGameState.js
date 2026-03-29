@@ -5,6 +5,7 @@ export function useGameState() {
     score: 0, roundStartScore: 0, scoreDelta: 0,
     roundTimer: 30, roundNumber: -1,
     poolUp: 0, poolDown: 0, recentResults: [],
+    narrative: { label: "—", direction: "stable", volume: 0, topMarkets: [] },
   });
   const prevRound = useRef(-1);
   const [roundChanged, setRoundChanged] = useState(false);

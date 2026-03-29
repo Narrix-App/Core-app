@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react";
 import { ExternalLink } from "lucide-react";
 
-// Convert Hedera txId "0.0.xxxx@1234567.890" → HashScan URL
 function hashscanUrl(txId) {
   if (!txId) return null;
-  // Format: "0.0.xxxx@seconds.nanos" → "0.0.xxxx-seconds-nanos"
-  const formatted = txId.replace("@", "-").replace(/\./g, "-");
-  // But account ID dots need to stay → re-insert: "0.0.xxxx" part
-  // txId format: "0.0.ACCOUNT@SECS.NANOS"
   const match = txId.match(/^(\d+\.\d+\.\d+)@(\d+)\.(\d+)$/);
-  if (!match) return `https://hashscan.io/testnet/transaction/${formatted}`;
+  if (!match) {
+    const formatted = txId.replace("@", "-").replace(/\./g, "-");
+    return `https://hashscan.io/testnet/transaction/${formatted}`;
+  }
   const [, acct, secs, nanos] = match;
   return `https://hashscan.io/testnet/transaction/${acct}-${secs}-${nanos}`;
 }
@@ -23,6 +21,43 @@ function truncTxId(txId) {
   return `${shortAcct}-${nanos.slice(-3)}`;
 }
 
+// ── Onboarding "How to Play" ─────────────────────────────
+function OnboardingGuide({ connected }) {
+  if (!connected) {
+    return (
+      <div className="mt-3 flex items-center justify-center p-6 glass-card text-center">
+        <span className="text-[12px] text-[var(--color-muted)]">
+          Connect your wallet to start playing
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 p-5 glass-card">
+      <div className="text-[10px] uppercase tracking-[3px] text-[var(--color-muted)] mb-4 text-center">How to Play</div>
+      <div className="flex justify-around text-[var(--color-muted)] text-[11px]">
+        <div className="flex flex-col items-center text-center gap-1.5 max-w-[120px]">
+          <span className="text-xl">&#x1FA99;</span>
+          <span className="text-white font-bold text-[12px]">1. Get Funded</span>
+          <span>Connect wallet & hit +GET NRX</span>
+        </div>
+        <div className="flex flex-col items-center text-center gap-1.5 max-w-[120px]">
+          <span className="text-xl">&#x1F3AF;</span>
+          <span className="text-white font-bold text-[12px]">2. Lock Entry</span>
+          <span>Pick an amount and SMASH UP or DOWN</span>
+        </div>
+        <div className="flex flex-col items-center text-center gap-1.5 max-w-[120px]">
+          <span className="text-xl">&#x23F1;</span>
+          <span className="text-white font-bold text-[12px]">3. Survive 30s</span>
+          <span>If the pulse finishes your way, you take the pool</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ───────────────────────────────────────
 export default function HistoryTable({ accountId }) {
   const [bets, setBets] = useState([]);
 
@@ -41,7 +76,10 @@ export default function HistoryTable({ accountId }) {
     return () => { active = false; clearInterval(id); };
   }, [accountId]);
 
-  if (!accountId) return null;
+  // Empty state: show onboarding guide
+  if (!accountId || bets.length === 0) {
+    return <OnboardingGuide connected={!!accountId} />;
+  }
 
   return (
     <div className="mt-3">
@@ -49,7 +87,7 @@ export default function HistoryTable({ accountId }) {
       <div className="max-h-[160px] overflow-y-auto">
         <table className="w-full text-[11px]">
           <thead>
-            <tr className="text-[var(--color-muted)] border-b border-[var(--color-border)]">
+            <tr className="text-[var(--color-muted)]" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
               <th className="text-left py-1 font-medium">Round</th>
               <th className="text-left py-1 font-medium">Side</th>
               <th className="text-right py-1 font-medium">Amount</th>
@@ -63,19 +101,19 @@ export default function HistoryTable({ accountId }) {
               const isFaucet = b.status === "faucet" || b.direction === -1;
 
               return (
-                <tr key={b.id} className="border-b border-[var(--color-border)]/30 hover:bg-white/[0.02]">
-                  <td className="py-1.5 tabular-nums">
-                    {isFaucet ? <span className="text-[var(--color-gold)]">FAUCET</span> : `#${b.roundNumber}`}
+                <tr key={b.id} className="hover:bg-white/[0.02]" style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                  <td className="py-1.5 tabular-nums font-mono">
+                    {isFaucet ? <span className="text-[var(--color-accent)]">FAUCET</span> : `#${b.roundNumber}`}
                   </td>
                   <td className={`py-1.5 font-bold ${
-                    isFaucet ? "text-[var(--color-gold)]"
+                    isFaucet ? "text-[var(--color-accent)]"
                       : b.direction === 0 ? "text-[var(--color-up)]" : "text-[var(--color-down)]"
                   }`}>
                     {isFaucet ? "+NRX" : b.direction === 0 ? "UP" : "DOWN"}
                   </td>
-                  <td className="py-1.5 text-right tabular-nums">{b.amount}</td>
-                  <td className={`py-1.5 text-right font-bold tabular-nums ${
-                    isFaucet ? "text-[var(--color-gold)]"
+                  <td className="py-1.5 text-right tabular-nums font-mono">{b.amount}</td>
+                  <td className={`py-1.5 text-right font-bold tabular-nums font-mono ${
+                    isFaucet ? "text-[var(--color-accent)]"
                       : b.status === "pending" ? "text-[var(--color-muted)]"
                       : (b.pnl ?? 0) >= 0 ? "text-[var(--color-up)]" : "text-[var(--color-down)]"
                   }`}>
@@ -87,7 +125,7 @@ export default function HistoryTable({ accountId }) {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[var(--color-accent)] hover:text-white transition-colors inline-flex items-center gap-0.5"
+                        className="text-[var(--color-accent)] hover:text-white transition-colors inline-flex items-center gap-0.5 font-mono"
                         title={b.txId}
                       >
                         {truncTxId(b.txId)}
@@ -100,9 +138,6 @@ export default function HistoryTable({ accountId }) {
                 </tr>
               );
             })}
-            {bets.length === 0 && (
-              <tr><td colSpan={5} className="py-4 text-center text-[var(--color-muted)]">No bets yet</td></tr>
-            )}
           </tbody>
         </table>
       </div>
