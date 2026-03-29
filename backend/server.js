@@ -1,9 +1,11 @@
+import "dotenv/config"; // Must be first — loads env vars before anything else
 import express from "express";
 import cors from "cors";
 import http from "http";
 import { Server as SocketServer } from "socket.io";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
 import {
   Client,
   PrivateKey,
@@ -18,7 +20,14 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const { PrismaClient } = require("@prisma/client");
 const { EventSource } = require("eventsource");
-import "dotenv/config";
+
+// ─── Process-level crash guards (prevent transient Hedera errors killing server)
+process.on("uncaughtException", (err) => {
+  console.error("[UNCAUGHT EXCEPTION] — process continues:", err.message);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[UNHANDLED REJECTION] — process continues:", reason);
+});
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const prisma = new PrismaClient();
@@ -52,7 +61,6 @@ const io = new SocketServer(httpServer, {
 app.use(cors());
 app.use(express.json());
 app.use(express.static(resolve(__dirname, "../frontend/dist")));
-app.use(express.static(resolve(__dirname, "../frontend")));
 
 io.on("connection", (socket) => {
   console.log(`  [ws] Client connected (${io.engine.clientsCount} total)`);
@@ -598,6 +606,23 @@ app.get("*", (req, res) => {
 const PORT = process.env.PORT || 3001;
 
 async function main() {
+  // Ensure SQLite DB directory exists (critical for Railway persistent volumes)
+  const dbUrl = process.env.DATABASE_URL || "file:./dev.db";
+  const dbMatch = dbUrl.match(/^file:(.+)$/);
+  if (dbMatch) {
+    const dbDir = resolve(__dirname, dirname(dbMatch[1]));
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+
+  // Run migrations at startup (idempotent — safe to run every boot)
+  try {
+    const { execSync } = await import("child_process");
+    execSync("npx prisma migrate deploy", { cwd: __dirname, stdio: "inherit" });
+  } catch (err) {
+    console.error("  [db] Migration warning:", err.message);
+    // Don't exit — DB may already be up to date
+  }
+
   await prisma.$connect();
   console.log("  DB connected (SQLite)");
 
