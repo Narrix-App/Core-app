@@ -3,8 +3,8 @@ nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = [
-  "npm ci --prefix frontend",
-  "npm ci --prefix backend"
+  "npm install --prefix frontend --legacy-peer-deps",
+  "npm install --prefix backend --legacy-peer-deps"
 ]
 
 [phases.build]
